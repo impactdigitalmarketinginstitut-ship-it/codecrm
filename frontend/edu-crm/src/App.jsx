@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from "react";
+import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -18,18 +18,40 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ImportLeads from "./pages/Counsellor/ImportLeads";
 
 function AppLayout({ children }) {
+const [collapsed, setCollapsed] = useState(() => {
+  return localStorage.getItem("sidebar_collapsed") === "true";
+});
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
-    <>
-      <Sidebar />
-      <div className="main">
-        <Header />
-        <div style={{ padding: "20px" }}>
+    <div className="app-layout">
+      <Sidebar
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+      />
+
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <div className="main-content">
+        <Header
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+        />
+
+        <main className="page-content">
           <ErrorBoundary>
             {children}
           </ErrorBoundary>
-        </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }
 

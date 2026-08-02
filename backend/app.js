@@ -13,6 +13,7 @@ import adminRoutes from "./routes/admin.js";
 import brandRoutes from './routes/brands.js';
 import courseRoutes from "./routes/course.js"; 
 import publicLeadRoutes from "./routes/publicLeadRoutes.js";
+import assessmentRoutes from "./routes/assessmentRoutes.js";
 
 import './backup/cron.js';
 
@@ -37,6 +38,7 @@ app.use("/admin", adminRoutes);
 app.use("/brands",brandRoutes);
 app.use("/courses",courseRoutes);
 app.use("/public/leads",publicLeadRoutes);
+app.use("/api",assessmentRoutes);
 console.log("✅ Public lead routes loaded");
 
 app.use((req, res) => {
