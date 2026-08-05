@@ -8,6 +8,7 @@ import {
   upsertLeadToMonthlyCsv,
 } from "../backup/localBackup.js";
 import { enqueueFileUpload } from "../backup/driveUploader.js";
+import { sendAssessmentMail } from "../utils/sendAssessmentMail.js";
 export const createAssessmentLead = async (req, res) => {
   try {
     const { fullName, phone } = req.body;
@@ -111,11 +112,6 @@ export const createAssessmentLead = async (req, res) => {
   }
 };
 
-/* ============================================================
-   UPDATE REPORT
-   Called after Assessment Completed
-============================================================ */
-
 export const updateAssessmentReport = async (req, res) => {
   try {
     const { leadId } = req.params;
@@ -147,13 +143,13 @@ ${assessment.careerFit}
 
 Top Strengths :
 ${assessment.strengths
-  ?.map((s) => `• ${s}`)
-  .join("\n")}
+        ?.map((s) => `• ${s}`)
+        .join("\n")}
 
 Recommended Careers :
 ${assessment.recommendedCareers
-  ?.map((c) => `• ${c}`)
-  .join("\n")}
+        ?.map((c) => `• ${c}`)
+        .join("\n")}
 
 ------------------------------------------
 
@@ -185,6 +181,12 @@ assessment.impactdigitalmarketinginstitute.in
     });
 
     const saved = await lead.save();
+    sendAssessmentMail({
+      studentName: lead.name,
+      phone:lead.phone_primary,
+      score: assessment.score,
+      careerFit: assessment.careerFit,
+    }).catch(console.error);
 
     const populatedLead = await Lead.findById(saved._id)
       .populate("brand", "name")
