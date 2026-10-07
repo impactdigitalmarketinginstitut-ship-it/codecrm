@@ -1,3 +1,4 @@
+
 import Lead from "../models/Lead.js";
 import Brand from "../models/Brand.js";
 import Course from "../models/Course.js";
@@ -9,9 +10,14 @@ import {
 } from "../backup/localBackup.js";
 import { enqueueFileUpload } from "../backup/driveUploader.js";
 import { sendAssessmentMail } from "../utils/sendAssessmentMail.js";
+
 export const createAssessmentLead = async (req, res) => {
   try {
-    const { fullName, phone } = req.body;
+    const {
+      fullName,
+      phone,
+      page_source,
+    } = req.body;
 
     if (!fullName || !phone) {
       return res.status(400).json({
@@ -62,6 +68,10 @@ export const createAssessmentLead = async (req, res) => {
       brand: process.env.IMPACT_BRAND_ID,
       course_interest: process.env.IMPACT_DIGITAL_MARKETING_COURSE_ID,
       source: "Website",
+
+      // Page from which the assessment form was submitted
+      page_source: page_source || "Unknown",
+
       status: "new",
       intent_level: "medium",
       notes: "Assessment Started",
@@ -95,6 +105,7 @@ export const createAssessmentLead = async (req, res) => {
       entityId: saved._id,
       details: {
         source: "Website Assessment",
+        page_source: page_source || "Unknown",
       },
     });
 
@@ -181,9 +192,10 @@ assessment.impactdigitalmarketinginstitute.in
     });
 
     const saved = await lead.save();
+
     sendAssessmentMail({
       studentName: lead.name,
-      phone:lead.phone_primary,
+      phone: lead.phone_primary,
       score: assessment.score,
       careerFit: assessment.careerFit,
     }).catch(console.error);
