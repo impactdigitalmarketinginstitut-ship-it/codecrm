@@ -6,12 +6,10 @@ import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import { upsertLeadToMonthlyCsv } from "../backup/localBackup.js";
 import { enqueueFileUpload } from "../backup/driveUploader.js";
-
 export const createWebsiteLead = async (req, res) => {
   try {
     console.log("========== WEBSITE LEAD ==========");
     console.log(req.body);
-
     const {
       name,
       phone,
@@ -20,23 +18,19 @@ export const createWebsiteLead = async (req, res) => {
       language,
       source_page,
       page,
-      page_source,
       brand,
       course,
       source,
       remarks,
     } = req.body;
-
     const phoneNumber = mobile || phone;
-    const pageUrl = page || source_page || page_source;
-
+    const pageUrl = page || source_page;
     if (!name || !phoneNumber) {
       return res.status(400).json({
         success: false,
         message: "Name and Mobile are required",
       });
     }
-
     // const duplicate = await Lead.findOne({
     //   $or: [
     //     { phone_primary: phoneNumber },
@@ -51,14 +45,11 @@ export const createWebsiteLead = async (req, res) => {
     //     message: "Lead already exists",
     //   });
     // }
-
     let brandDoc = null;
-
     if (brand) {
       brandDoc = await Brand.findOne({
         name: new RegExp(`^${brand}$`, "i"),
       });
-
       if (!brandDoc) {
         brandDoc = await Brand.create({
           name: brand.trim(),
@@ -67,27 +58,22 @@ export const createWebsiteLead = async (req, res) => {
     } else {
       brandDoc = await Brand.findOne();
     }
-
     if (!brandDoc) {
       return res.status(400).json({
         success: false,
         message: "No Brand available.",
       });
     }
-
     let courseDoc = null;
-
     if (course) {
       courseDoc = await Course.findOne({
         name: new RegExp(`^${course}$`, "i"),
       });
-
       if (!courseDoc) {
         courseDoc = await Course.create({
           name: course.trim(),
         });
       }
-
       if (
         !brandDoc.courses.some(
           (id) => id.toString() === courseDoc._id.toString()
@@ -97,7 +83,6 @@ export const createWebsiteLead = async (req, res) => {
         await brandDoc.save();
       }
     }
-
     let counsellor = null;
 
     if (courseDoc) {
@@ -106,7 +91,6 @@ export const createWebsiteLead = async (req, res) => {
         assignedCourses: courseDoc._id,
       });
     }
-
     const lead = await Lead.create({
       name,
       phone_primary: phoneNumber,
@@ -114,23 +98,20 @@ export const createWebsiteLead = async (req, res) => {
       brand: brandDoc._id,
       course_interest: courseDoc?._id,
       source: source || "Website",
-      page_source: pageUrl,
       assigned_to: counsellor?._id,
       status: "new",
       notes: `Website Lead
       Language : ${language || "-"}
       Page :${pageUrl || "-"}${remarks || ""}`,
     });
-
     const populatedLead = await Lead.findById(lead._id)
-      .populate("brand", "name")
-      .populate("course_interest", "name")
-      .populate("assigned_to", "name")
-      .lean();
+  .populate("brand", "name")
+  .populate("course_interest", "name")
+  .populate("assigned_to", "name")
+  .lean();
 
-    const csvPath = upsertLeadToMonthlyCsv(populatedLead);
-    enqueueFileUpload(csvPath);
-
+const csvPath = upsertLeadToMonthlyCsv(populatedLead);
+enqueueFileUpload(csvPath);
     await AuditLog.create({
       user: null,
       action: "website_lead",
@@ -138,7 +119,6 @@ export const createWebsiteLead = async (req, res) => {
       entityId: lead._id,
       details: req.body,
     });
-
     return res.status(201).json({
       success: true,
       leadId: lead._id,
@@ -146,7 +126,6 @@ export const createWebsiteLead = async (req, res) => {
     });
   } catch (err) {
     console.error("createWebsiteLead:", err);
-
     return res.status(500).json({
       success: false,
       message: err.message,
