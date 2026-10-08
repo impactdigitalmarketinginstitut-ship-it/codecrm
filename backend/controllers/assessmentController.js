@@ -1,4 +1,3 @@
-
 import Lead from "../models/Lead.js";
 import Brand from "../models/Brand.js";
 import Course from "../models/Course.js";
@@ -13,14 +12,27 @@ import { sendAssessmentMail } from "../utils/sendAssessmentMail.js";
 
 export const createAssessmentLead = async (req, res) => {
   try {
-    const { fullName, phone, sourcePage } = req.body;
+    // ==========================================================
+    // GET WEBSITE LEAD DATA
+    // ==========================================================
+
+    const {
+      fullName,
+      phone,
+      source_page,
+    } = req.body;
 
     if (!fullName || !phone) {
       return res.status(400).json({
         success: false,
-        message: "Full Name and Phone are required.",
+        message:
+          "Full Name and Phone are required.",
       });
     }
+
+    // ==========================================================
+    // FIND BRAND
+    // ==========================================================
 
     const brand = await Brand.findOne({
       name: "Impact Digital Marketing",
@@ -33,6 +45,10 @@ export const createAssessmentLead = async (req, res) => {
       });
     }
 
+    // ==========================================================
+    // FIND COURSE
+    // ==========================================================
+
     const course = await Course.findOne({
       name: "Digital Marketing",
     });
@@ -44,7 +60,9 @@ export const createAssessmentLead = async (req, res) => {
       });
     }
 
-    /* Existing Lead */
+    // ==========================================================
+    // CHECK EXISTING LEAD
+    // ==========================================================
 
     let lead = await Lead.findOne({
       phone_primary: phone,
@@ -58,48 +76,134 @@ export const createAssessmentLead = async (req, res) => {
       });
     }
 
+    // ==========================================================
+    // CREATE NEW LEAD
+    // ==========================================================
+
     lead = new Lead({
       name: fullName,
+
       phone_primary: phone,
-      brand: process.env.IMPACT_BRAND_ID,
-      course_interest: process.env.IMPACT_DIGITAL_MARKETING_COURSE_ID,
+
+      brand:
+        process.env.IMPACT_BRAND_ID,
+
+      course_interest:
+        process.env.IMPACT_DIGITAL_MARKETING_COURSE_ID,
+
       source: "Website",
-      sourcePage: sourcePage || null,
+
+      // ========================================================
+      // DYNAMIC WEBSITE SOURCE PAGE
+      // ========================================================
+      // Examples:
+      // /
+      // /services
+      // /contact
+      // /assessment
+      // ========================================================
+
+      source_page:
+        typeof source_page === "string"
+          ? source_page.trim()
+          : "",
+
       status: "new",
+
       intent_level: "medium",
+
       notes: "Assessment Started",
     });
 
-    lead.intent_level = detectIntent("Assessment Started");
+    // ==========================================================
+    // DETECT INTENT
+    // ==========================================================
 
-    lead.priority_score = calcPriority({
-      sourceScore: 2,
-      courseDemand: 2,
-      attemptSuccess: 0,
-      isHot: false,
-      freshnessScore: 3,
-      demoBooked: false,
-    });
+    lead.intent_level =
+      detectIntent(
+        "Assessment Started"
+      );
 
-    const saved = await lead.save();
+    // ==========================================================
+    // CALCULATE PRIORITY
+    // ==========================================================
 
-    const populatedLead = await Lead.findById(saved._id)
-      .populate("brand", "name")
-      .populate("course_interest", "name")
-      .lean();
+    lead.priority_score =
+      calcPriority({
+        sourceScore: 2,
+        courseDemand: 2,
+        attemptSuccess: 0,
+        isHot: false,
+        freshnessScore: 3,
+        demoBooked: false,
+      });
 
-    const csvPath = upsertLeadToMonthlyCsv(populatedLead);
+    // ==========================================================
+    // SAVE LEAD
+    // ==========================================================
 
-    enqueueFileUpload(csvPath);
+    const saved =
+      await lead.save();
+
+    // ==========================================================
+    // POPULATE LEAD
+    // ==========================================================
+
+    const populatedLead =
+      await Lead.findById(
+        saved._id
+      )
+        .populate(
+          "brand",
+          "name"
+        )
+        .populate(
+          "course_interest",
+          "name"
+        )
+        .lean();
+
+    // ==========================================================
+    // CSV BACKUP
+    // ==========================================================
+
+    const csvPath =
+      upsertLeadToMonthlyCsv(
+        populatedLead
+      );
+
+    enqueueFileUpload(
+      csvPath
+    );
+
+    // ==========================================================
+    // AUDIT LOG
+    // ==========================================================
 
     await AuditLog.create({
-      action: "assessment_lead_created",
+      action:
+        "assessment_lead_created",
+
       entity: "Lead",
-      entityId: saved._id,
+
+      entityId:
+        saved._id,
+
       details: {
-        source: "Website Assessment",
+        source:
+          "Website Assessment",
+
+        source_page:
+          typeof source_page ===
+          "string"
+            ? source_page.trim()
+            : "",
       },
     });
+
+    // ==========================================================
+    // RESPONSE
+    // ==========================================================
 
     return res.status(201).json({
       success: true,
@@ -110,25 +214,45 @@ export const createAssessmentLead = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message:
+        "Internal Server Error",
     });
   }
 };
 
-export const updateAssessmentReport = async (req, res) => {
+export const updateAssessmentReport = async (
+  req,
+  res
+) => {
   try {
-    const { leadId } = req.params;
+    const {
+      leadId,
+    } = req.params;
 
-    const { assessment } = req.body;
+    const {
+      assessment,
+    } = req.body;
 
-    const lead = await Lead.findById(leadId);
+    // ==========================================================
+    // FIND LEAD
+    // ==========================================================
+
+    const lead =
+      await Lead.findById(
+        leadId
+      );
 
     if (!lead) {
       return res.status(404).json({
         success: false,
-        message: "Lead not found.",
+        message:
+          "Lead not found.",
       });
     }
+
+    // ==========================================================
+    // GENERATE REPORT
+    // ==========================================================
 
     const report = `
 ==================================================
@@ -146,19 +270,26 @@ ${assessment.careerFit}
 
 Top Strengths :
 ${assessment.strengths
-        ?.map((s) => `• ${s}`)
-        .join("\n")}
+  ?.map(
+    (s) => `• ${s}`
+  )
+  .join("\n")}
 
 Recommended Careers :
 ${assessment.recommendedCareers
-        ?.map((c) => `• ${c}`)
-        .join("\n")}
+  ?.map(
+    (c) => `• ${c}`
+  )
+  .join("\n")}
 
 ------------------------------------------
 
 Question Responses
 
-${assessment.questionAnswers || "Not Available"}
+${
+  assessment.questionAnswers ||
+  "Not Available"
+}
 
 ==================================================
 Generated From :
@@ -166,60 +297,124 @@ assessment.impactdigitalmarketinginstitute.in
 ==================================================
 `;
 
+    // ==========================================================
+    // UPDATE LEAD
+    // ==========================================================
+
     lead.notes = report;
 
-    lead.intent_level = "high";
+    lead.intent_level =
+      "high";
 
     lead.is_hot = true;
 
     lead.status = "new";
 
-    lead.priority_score = calcPriority({
-      sourceScore: 5,
-      courseDemand: 4,
-      attemptSuccess: 1,
-      isHot: true,
-      freshnessScore: 5,
-      demoBooked: false,
-    });
+    lead.priority_score =
+      calcPriority({
+        sourceScore: 5,
+        courseDemand: 4,
+        attemptSuccess: 1,
+        isHot: true,
+        freshnessScore: 5,
+        demoBooked: false,
+      });
 
-    const saved = await lead.save();
+    // ==========================================================
+    // SAVE UPDATED LEAD
+    // ==========================================================
+
+    const saved =
+      await lead.save();
+
+    // ==========================================================
+    // SEND ASSESSMENT EMAIL
+    // ==========================================================
 
     sendAssessmentMail({
-      studentName: lead.name,
-      phone: lead.phone_primary,
-      score: assessment.score,
-      careerFit: assessment.careerFit,
+      studentName:
+        lead.name,
+
+      phone:
+        lead.phone_primary,
+
+      score:
+        assessment.score,
+
+      careerFit:
+        assessment.careerFit,
     }).catch(console.error);
 
-    const populatedLead = await Lead.findById(saved._id)
-      .populate("brand", "name")
-      .populate("course_interest", "name")
-      .lean();
+    // ==========================================================
+    // POPULATE LEAD
+    // ==========================================================
 
-    const csvPath = upsertLeadToMonthlyCsv(populatedLead);
+    const populatedLead =
+      await Lead.findById(
+        saved._id
+      )
+        .populate(
+          "brand",
+          "name"
+        )
+        .populate(
+          "course_interest",
+          "name"
+        )
+        .lean();
 
-    enqueueFileUpload(csvPath);
+    // ==========================================================
+    // CSV BACKUP
+    // ==========================================================
+
+    const csvPath =
+      upsertLeadToMonthlyCsv(
+        populatedLead
+      );
+
+    enqueueFileUpload(
+      csvPath
+    );
+
+    // ==========================================================
+    // AUDIT LOG
+    // ==========================================================
 
     await AuditLog.create({
-      action: "assessment_completed",
+      action:
+        "assessment_completed",
+
       entity: "Lead",
-      entityId: saved._id,
+
+      entityId:
+        saved._id,
+
       details: {
-        score: assessment.score,
+        score:
+          assessment.score,
+
+        source_page:
+          lead.source_page ||
+          "",
       },
     });
 
+    // ==========================================================
+    // RESPONSE
+    // ==========================================================
+
     return res.json({
       success: true,
-      message: "Assessment Report Saved Successfully",
+      message:
+        "Assessment Report Saved Successfully",
     });
   } catch (err) {
     console.error(err);
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message:
+        "Internal Server Error",
     });
   }
 };
