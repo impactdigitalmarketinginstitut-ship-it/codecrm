@@ -44,18 +44,25 @@ export default function CounsellorLeads() {
   const [error, setError] = useState("");
 
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState({ brand: "", source: "", status: "" });
+  const [filter, setFilter] = useState({
+    brand: "",
+    source: "",
+    status: "",
+  });
   const [quick, setQuick] = useState("");
-  const [sortBy, setSortBy] = useState("nextFollowUp"); // default: next follow-up
+  const [sortBy, setSortBy] = useState("nextFollowUp");
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
 
   const [showSlide, setShowSlide] = useState(false);
-  const [editing, setEditing] = useState(null); // full lead object (from server or list)
+  const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // form holds editable fields shown in form inputs
+  // ==========================================================
+  // FORM
+  // ==========================================================
+
   const emptyForm = {
     name: "",
     phone_primary: "",
@@ -63,99 +70,157 @@ export default function CounsellorLeads() {
     email: "",
     brand: "",
     source: "",
+    source_page: "",
     course_interest: "",
     notes: "",
     next_follow_up: "",
     assigned_to: userId || "",
   };
+
   const [form, setForm] = useState(emptyForm);
 
-  // details: attempts / remarks / demos / conversion
+  // ==========================================================
+  // DETAILS
+  // ==========================================================
+
   const [editingAttempts, setEditingAttempts] = useState([]);
   const [editingRemarks, setEditingRemarks] = useState([]);
   const [editingDemos, setEditingDemos] = useState([]);
   const [editingConversion, setEditingConversion] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // quick modal states
+  // ==========================================================
+  // MODALS
+  // ==========================================================
+
   const [activeLead, setActiveLead] = useState(null);
   const [showAttemptModal, setShowAttemptModal] = useState(false);
   const [showRemarkModal, setShowRemarkModal] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
 
+  // ==========================================================
+  // INITIAL LOAD
+  // ==========================================================
+
   useEffect(() => {
     loadMeta();
     loadLeads();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const t = setTimeout(() => loadLeads(), 220);
+
     return () => clearTimeout(t);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, filter, quick, sortBy, page]);
 
-  // helper to display user info robustly
+  // ==========================================================
+  // HELPERS
+  // ==========================================================
+
   function displayUserName(u) {
     if (!u) return "—";
+
     if (typeof u === "string") return u;
+
     if (u.name) return u.name;
     if (u.fullName) return u.fullName;
     if (u.email) return u.email;
     if (u._id) return String(u._id);
     if (u.id) return String(u.id);
+
     return "—";
   }
 
+  // ==========================================================
+  // SOURCE PAGE HELPER
+  // ==========================================================
+
+  function getSourcePage(lead) {
+    if (!lead) return "";
+
+    return (
+      lead.source_page ||
+      lead.sourcePage ||
+      lead.source_url ||
+      lead.sourceUrl ||
+      ""
+    );
+  }
+
+  // ==========================================================
+  // LOAD META
+  // ==========================================================
+
   async function loadMeta() {
     setMetaLoading(true);
+
     try {
       try {
         const res = await AdminAPI.getBrands();
+
         const payload = res?.data ?? res ?? [];
+
         const arr =
           payload?.brands ||
           payload?.data ||
           (Array.isArray(payload) ? payload : []);
+
         setBrands(Array.isArray(arr) ? arr : []);
       } catch (err) {
-        // fallback: use assigned brands from user
         const assigned = Array.isArray(user?.assignedBrands)
           ? user.assignedBrands.map((b) =>
-            typeof b === "string"
-              ? { _id: b, name: `Brand ${b}` }
-              : {
-                _id: b._id || b.id || b,
-                name: b.name || `Brand ${b._id || b.id || ""}`,
-              }
-          )
+              typeof b === "string"
+                ? {
+                    _id: b,
+                    name: `Brand ${b}`,
+                  }
+                : {
+                    _id: b._id || b.id || b,
+                    name:
+                      b.name ||
+                      `Brand ${b._id || b.id || ""}`,
+                  }
+            )
           : [];
+
         setBrands(assigned);
       }
+
       try {
-      const res = await AdminAPI.getCourses({ limit: 1000 });
+        const res = await AdminAPI.getCourses({
+          limit: 1000,
+        });
 
-      const payload = res?.data ?? res ?? [];
+        const payload = res?.data ?? res ?? [];
 
-      const arr =
-        payload?.results ||
-        payload?.courses ||
-        payload?.data ||
-        (Array.isArray(payload) ? payload : []);
+        const arr =
+          payload?.results ||
+          payload?.courses ||
+          payload?.data ||
+          (Array.isArray(payload) ? payload : []);
 
-      setCourses(Array.isArray(arr) ? arr : []);
-    } catch (err) {
-      console.error("Failed loading courses", err);
-      setCourses([]);
-    }
+        setCourses(Array.isArray(arr) ? arr : []);
+      } catch (err) {
+        console.error("Failed loading courses", err);
+        setCourses([]);
+      }
 
       if (isAdmin) {
         try {
           const r = await AdminAPI.getCounsellors();
+
           const p = r?.data ?? r ?? [];
+
           const arr =
-            p?.users || p?.data || (Array.isArray(p) ? p : []);
+            p?.users ||
+            p?.data ||
+            (Array.isArray(p) ? p : []);
+
           setCounsellors(Array.isArray(arr) ? arr : []);
         } catch {
           setCounsellors([]);
@@ -169,14 +234,25 @@ export default function CounsellorLeads() {
   }
 
   function sortQuery(key) {
-    if (key === "nextFollowUp") return "next_follow_up";
-    if (key === "createdAt") return "-createdAt";
+    if (key === "nextFollowUp") {
+      return "next_follow_up";
+    }
+
+    if (key === "createdAt") {
+      return "-createdAt";
+    }
+
     return "next_follow_up";
   }
+
+  // ==========================================================
+  // LOAD LEADS
+  // ==========================================================
 
   async function loadLeads() {
     setLoading(true);
     setError("");
+
     try {
       const params = {
         search: q || undefined,
@@ -190,54 +266,71 @@ export default function CounsellorLeads() {
       };
 
       const res = await AdminAPI.getLeads(params);
+
       if (res && Array.isArray(res.leads)) {
         setLeads(res.leads);
         setTotal(res.total ?? res.leads.length);
       } else {
         const payload = res?.data ?? res;
+
         const arr =
           payload?.results ||
           payload?.leads ||
           payload?.data ||
           payload?.docs ||
           (Array.isArray(payload) ? payload : []);
+
         setLeads(Array.isArray(arr) ? arr : []);
+
         setTotal(
           payload?.total ??
-          payload?.count ??
-          (Array.isArray(arr) ? arr.length : 0)
+            payload?.count ??
+            (Array.isArray(arr) ? arr.length : 0)
         );
       }
     } catch (err) {
       console.error("Leads load failed:", err);
+
       setError(
         err?.response?.data?.message ||
-        err.message ||
-        "Could not load leads"
+          err.message ||
+          "Could not load leads"
       );
     } finally {
       setLoading(false);
     }
   }
 
-  /* ---------- helpers ---------- */
+  // ==========================================================
+  // LEAD HELPERS
+  // ==========================================================
+
   function assignedToCurrentUser(lead) {
     const a = lead?.assigned_to;
+
     if (!a) return false;
+
     const assignedId =
-      typeof a === "object" ? a._id || a.id || "" : String(a || "");
+      typeof a === "object"
+        ? a._id || a.id || ""
+        : String(a || "");
+
     return String(assignedId) === String(userId);
   }
 
   function isConverted(lead) {
     if (!lead) return false;
+
     if (
       lead.status &&
       String(lead.status).toLowerCase() === "converted"
-    )
+    ) {
       return true;
+    }
+
     if (lead.is_converted === true) return true;
     if (lead.converted === true) return true;
+
     return false;
   }
 
@@ -248,27 +341,43 @@ export default function CounsellorLeads() {
       `${kind}_counts`,
       `${kind}Counts`,
     ];
+
     for (const n of countNames) {
-      if (typeof lead?.[n] === "number") return lead[n];
+      if (typeof lead?.[n] === "number") {
+        return lead[n];
+      }
     }
+
     const arr =
       lead?.[kind] ||
       lead?.[`${kind}s`] ||
       lead?.[`${kind}_list`];
-    if (Array.isArray(arr)) return arr.length;
+
+    if (Array.isArray(arr)) {
+      return arr.length;
+    }
+
     return 0;
   }
 
   function formatNextFollowUp(nf) {
-    if (!nf)
+    if (!nf) {
       return {
         label: "No follow-up",
         human: "No follow-up",
         color: "muted",
       };
+    }
+
     const dt = dayjs(nf);
-    if (!dt.isValid())
-      return { label: "Invalid", human: nf, color: "muted" };
+
+    if (!dt.isValid()) {
+      return {
+        label: "Invalid",
+        human: nf,
+        color: "muted",
+      };
+    }
 
     const todayStart = dayjs().startOf("day");
     const todayEnd = dayjs().endOf("day");
@@ -280,13 +389,18 @@ export default function CounsellorLeads() {
         color: "overdue",
       };
     }
-    if (dt.isAfter(todayStart) && dt.isBefore(todayEnd)) {
+
+    if (
+      dt.isAfter(todayStart) &&
+      dt.isBefore(todayEnd)
+    ) {
       return {
         label: dt.format("DD MMM, YYYY HH:mm"),
         human: `Today • ${dt.format("HH:mm")}`,
         color: "today",
       };
     }
+
     return {
       label: dt.format("DD MMM, YYYY HH:mm"),
       human: dt.format("DD MMM, HH:mm"),
@@ -294,33 +408,57 @@ export default function CounsellorLeads() {
     };
   }
 
-  /* ---------- open create / open edit ---------- */
+  // ==========================================================
+  // CREATE
+  // ==========================================================
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...emptyForm, assigned_to: isCounsellor ? userId : "" });
+
+    setForm({
+      ...emptyForm,
+      assigned_to: isCounsellor ? userId : "",
+    });
+
     setEditingAttempts([]);
     setEditingRemarks([]);
     setEditingDemos([]);
     setEditingConversion(null);
+
     setShowSlide(true);
   }
+
+  // ==========================================================
+  // EDIT
+  // ==========================================================
 
   async function openEdit(listLead) {
     if (!listLead) return;
 
-    // show slide immediately
     setShowSlide(true);
     setDetailsLoading(true);
 
-    // 1) Prefill from list item so fields are never blank
     const baseLead = listLead || {};
+
     setEditing(baseLead);
+
     setForm({
       name: baseLead.name || "",
-      phone_primary: baseLead.phone_primary || baseLead.phone || baseLead.mobile || "",
-      phone_secondary: baseLead.phone_secondary || "",
-      email: baseLead.email || baseLead.Email || "",
+
+      phone_primary:
+        baseLead.phone_primary ||
+        baseLead.phone ||
+        baseLead.mobile ||
+        "",
+
+      phone_secondary:
+        baseLead.phone_secondary || "",
+
+      email:
+        baseLead.email ||
+        baseLead.Email ||
+        "",
+
       brand:
         (baseLead.brand &&
           (baseLead.brand._id ||
@@ -328,12 +466,27 @@ export default function CounsellorLeads() {
             baseLead.brand)) ||
         baseLead.brand ||
         "",
-      source: baseLead.source || baseLead.Source || "",
-      course_interest: baseLead.course_interest?._id || baseLead.course || "",
+
+      source:
+        baseLead.source ||
+        baseLead.Source ||
+        "",
+
+      source_page: getSourcePage(baseLead),
+
+      course_interest:
+        baseLead.course_interest?._id ||
+        baseLead.course ||
+        "",
+
       notes: baseLead.notes || "",
+
       next_follow_up: baseLead.next_follow_up
-        ? dayjs(baseLead.next_follow_up).format("YYYY-MM-DDTHH:mm")
+        ? dayjs(baseLead.next_follow_up).format(
+            "YYYY-MM-DDTHH:mm"
+          )
         : "",
+
       assigned_to:
         (baseLead.assigned_to &&
           (baseLead.assigned_to._id ||
@@ -349,12 +502,12 @@ export default function CounsellorLeads() {
     setEditingConversion(null);
 
     const leadId = baseLead._id || baseLead.id;
+
     if (!leadId) {
       setDetailsLoading(false);
       return;
     }
 
-    // 2) Fetch freshest lead & related details
     try {
       const [
         leadRes,
@@ -363,19 +516,42 @@ export default function CounsellorLeads() {
         demosRes,
         convRes,
       ] = await Promise.allSettled([
-        AdminAPI.getLead ? AdminAPI.getLead(leadId) : null,
-        AdminAPI.getAttempts ? AdminAPI.getAttempts(leadId) : null,
-        AdminAPI.getRemarks ? AdminAPI.getRemarks(leadId) : null,
-        AdminAPI.getDemos ? AdminAPI.getDemos(leadId) : null,
+        AdminAPI.getLead
+          ? AdminAPI.getLead(leadId)
+          : null,
+
+        AdminAPI.getAttempts
+          ? AdminAPI.getAttempts(leadId)
+          : null,
+
+        AdminAPI.getRemarks
+          ? AdminAPI.getRemarks(leadId)
+          : null,
+
+        AdminAPI.getDemos
+          ? AdminAPI.getDemos(leadId)
+          : null,
+
         AdminAPI.convertedLead
           ? AdminAPI.convertedLead(leadId)
           : null,
       ]);
 
-      // --- merge API lead with list lead ---
+      // ======================================================
+      // MERGE API LEAD
+      // ======================================================
+
       let apiLead = null;
-      if (leadRes.status === "fulfilled" && leadRes.value) {
-        const raw = leadRes.value?.data ?? leadRes.value ?? {};
+
+      if (
+        leadRes.status === "fulfilled" &&
+        leadRes.value
+      ) {
+        const raw =
+          leadRes.value?.data ??
+          leadRes.value ??
+          {};
+
         apiLead =
           raw.lead ||
           raw.data ||
@@ -383,15 +559,29 @@ export default function CounsellorLeads() {
           raw;
       }
 
-      const mergedLead = { ...(baseLead || {}), ...(apiLead || {}) };
+      const mergedLead = {
+        ...(baseLead || {}),
+        ...(apiLead || {}),
+      };
+
       setEditing(mergedLead);
 
       setForm({
         name: mergedLead.name || "",
+
         phone_primary:
-          mergedLead.phone_primary || mergedLead.phone || "",
-        phone_secondary: mergedLead.phone_secondary || "",
-        email: mergedLead.email || mergedLead.Email || "",
+          mergedLead.phone_primary ||
+          mergedLead.phone ||
+          "",
+
+        phone_secondary:
+          mergedLead.phone_secondary || "",
+
+        email:
+          mergedLead.email ||
+          mergedLead.Email ||
+          "",
+
         brand:
           (mergedLead.brand &&
             (mergedLead.brand._id ||
@@ -399,14 +589,28 @@ export default function CounsellorLeads() {
               mergedLead.brand)) ||
           mergedLead.brand ||
           "",
-        source: mergedLead.source || mergedLead.Source || "",
-        course_interest: mergedLead.course_interest?._id || mergedLead.course_interest || "",
+
+        source:
+          mergedLead.source ||
+          mergedLead.Source ||
+          "",
+
+        source_page: getSourcePage(mergedLead),
+
+        course_interest:
+          mergedLead.course_interest?._id ||
+          mergedLead.course_interest ||
+          "",
+
         notes: mergedLead.notes || "",
-        next_follow_up: mergedLead.next_follow_up
-          ? dayjs(mergedLead.next_follow_up).format(
-            "YYYY-MM-DDTHH:mm"
-          )
-          : "",
+
+        next_follow_up:
+          mergedLead.next_follow_up
+            ? dayjs(
+                mergedLead.next_follow_up
+              ).format("YYYY-MM-DDTHH:mm")
+            : "",
+
         assigned_to:
           (mergedLead.assigned_to &&
             (mergedLead.assigned_to._id ||
@@ -416,51 +620,103 @@ export default function CounsellorLeads() {
           "",
       });
 
-      // attempts
-      if (attemptsRes.status === "fulfilled" && attemptsRes.value) {
+      // ======================================================
+      // ATTEMPTS
+      // ======================================================
+
+      if (
+        attemptsRes.status === "fulfilled" &&
+        attemptsRes.value
+      ) {
         const attPayload =
-          attemptsRes.value?.data ?? attemptsRes.value ?? [];
+          attemptsRes.value?.data ??
+          attemptsRes.value ??
+          [];
+
         const arr =
           attPayload.results ||
           attPayload.data ||
           attPayload ||
           [];
-        setEditingAttempts(Array.isArray(arr) ? arr : []);
+
+        setEditingAttempts(
+          Array.isArray(arr) ? arr : []
+        );
       } else {
         setEditingAttempts([]);
       }
 
-      // remarks
-      if (remarksRes.status === "fulfilled" && remarksRes.value) {
+      // ======================================================
+      // REMARKS
+      // ======================================================
+
+      if (
+        remarksRes.status === "fulfilled" &&
+        remarksRes.value
+      ) {
         const rPayload =
-          remarksRes.value?.data ?? remarksRes.value ?? [];
+          remarksRes.value?.data ??
+          remarksRes.value ??
+          [];
+
         const arr =
-          rPayload.results || rPayload.data || rPayload || [];
-        setEditingRemarks(Array.isArray(arr) ? arr : []);
+          rPayload.results ||
+          rPayload.data ||
+          rPayload ||
+          [];
+
+        setEditingRemarks(
+          Array.isArray(arr) ? arr : []
+        );
       } else {
         setEditingRemarks([]);
       }
 
-      // demos
-      if (demosRes.status === "fulfilled" && demosRes.value) {
+      // ======================================================
+      // DEMOS
+      // ======================================================
+
+      if (
+        demosRes.status === "fulfilled" &&
+        demosRes.value
+      ) {
         const dPayload =
-          demosRes.value?.data ?? demosRes.value ?? [];
+          demosRes.value?.data ??
+          demosRes.value ??
+          [];
+
         const arr =
-          dPayload.results || dPayload.data || dPayload || [];
-        setEditingDemos(Array.isArray(arr) ? arr : []);
+          dPayload.results ||
+          dPayload.data ||
+          dPayload ||
+          [];
+
+        setEditingDemos(
+          Array.isArray(arr) ? arr : []
+        );
       } else {
         setEditingDemos([]);
       }
 
-      // conversion
-      if (convRes.status === "fulfilled" && convRes.value) {
+      // ======================================================
+      // CONVERSION
+      // ======================================================
+
+      if (
+        convRes.status === "fulfilled" &&
+        convRes.value
+      ) {
         const cPayload =
-          convRes.value?.data ?? convRes.value ?? null;
+          convRes.value?.data ??
+          convRes.value ??
+          null;
+
         const conv =
           cPayload?.conversion ||
           cPayload?.data ||
           cPayload ||
           null;
+
         setEditingConversion(conv || null);
       } else {
         setEditingConversion(null);
@@ -472,171 +728,359 @@ export default function CounsellorLeads() {
     }
   }
 
-  /* ---------- CRUD interactions ---------- */
+  // ==========================================================
+  // SAVE
+  // ==========================================================
 
   async function handleSave(e) {
     e?.preventDefault?.();
+
     setBusy(true);
+
     try {
-      if (!form.name?.trim()) throw new Error("Name required");
-      if (!form.phone_primary?.trim())
+      if (!form.name?.trim()) {
+        throw new Error("Name required");
+      }
+
+      if (!form.phone_primary?.trim()) {
         throw new Error("Primary phone required");
-      if (!form.brand) throw new Error("Brand required");
+      }
+
+      if (!form.brand) {
+        throw new Error("Brand required");
+      }
 
       const body = {
         name: form.name,
+
         phone_primary: form.phone_primary,
-        phone_secondary: form.phone_secondary || undefined,
-        email: form.email || undefined,
+
+        phone_secondary:
+          form.phone_secondary || undefined,
+
+        email:
+          form.email || undefined,
+
         brand: form.brand,
-        source: form.source || undefined,
-        course_interest: form.course_interest || undefined,
-        notes: form.notes || undefined,
+
+        source:
+          form.source || undefined,
+
+        source_page:
+          form.source_page || undefined,
+
+        course_interest:
+          form.course_interest || undefined,
+
+        notes:
+          form.notes || undefined,
+
         next_follow_up: form.next_follow_up
-          ? new Date(form.next_follow_up).toISOString()
+          ? new Date(
+              form.next_follow_up
+            ).toISOString()
           : undefined,
-        assigned_to: form.assigned_to || undefined,
+
+        assigned_to:
+          form.assigned_to || undefined,
       };
 
-      if (editing && (editing._id || editing.id)) {
-        await AdminAPI.updateLead(editing._id || editing.id, body);
+      if (
+        editing &&
+        (editing._id || editing.id)
+      ) {
+        await AdminAPI.updateLead(
+          editing._id || editing.id,
+          body
+        );
       } else {
         await AdminAPI.createLead(body);
       }
+
       await loadLeads();
+
       setShowSlide(false);
     } catch (err) {
       alert(
         err?.response?.data?.message ||
-        err.message ||
-        "Save failed"
+          err.message ||
+          "Save failed"
       );
     } finally {
       setBusy(false);
     }
   }
 
+  // ==========================================================
+  // DELETE
+  // ==========================================================
+
   async function handleDelete(l) {
-    if (!window.confirm(`Delete lead "${l.name}" ?`)) return;
+    if (
+      !window.confirm(
+        `Delete lead "${l.name}" ?`
+      )
+    ) {
+      return;
+    }
+
     try {
-      await AdminAPI.deleteLead(l._id || l.id);
+      await AdminAPI.deleteLead(
+        l._id || l.id
+      );
+
       await loadLeads();
     } catch (err) {
       alert(
         "Delete failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
 
-  async function addAttempt(leadId, payload) {
+  // ==========================================================
+  // ATTEMPT
+  // ==========================================================
+
+  async function addAttempt(
+    leadId,
+    payload
+  ) {
     try {
-      await AdminAPI.addAttempt(leadId, payload);
-      // refresh details & list
-      await openEdit({ _id: leadId, id: leadId });
+      await AdminAPI.addAttempt(
+        leadId,
+        payload
+      );
+
+      await openEdit({
+        _id: leadId,
+        id: leadId,
+      });
+
       await loadLeads();
     } catch (err) {
       alert(
         "Add attempt failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
 
-  async function addRemark(leadId, text, next_follow_up) {
+  // ==========================================================
+  // REMARK
+  // ==========================================================
+
+  async function addRemark(
+    leadId,
+    text,
+    next_follow_up
+  ) {
     try {
-      await AdminAPI.addRemark(leadId, { text, next_follow_up });
-      await openEdit({ _id: leadId, id: leadId });
+      await AdminAPI.addRemark(
+        leadId,
+        {
+          text,
+          next_follow_up,
+        }
+      );
+
+      await openEdit({
+        _id: leadId,
+        id: leadId,
+      });
+
       await loadLeads();
     } catch (err) {
       alert(
         "Add remark failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
 
-  async function bookDemo(leadId, payload) {
+  // ==========================================================
+  // DEMO
+  // ==========================================================
+
+  async function bookDemo(
+    leadId,
+    payload
+  ) {
     try {
-      if (AdminAPI.bookDemo) await AdminAPI.bookDemo(leadId, payload);
-      else
-        await AdminAPI.rawPost(`/leads/${leadId}/demos`, payload);
-      await openEdit({ _id: leadId, id: leadId });
+      if (AdminAPI.bookDemo) {
+        await AdminAPI.bookDemo(
+          leadId,
+          payload
+        );
+      } else {
+        await AdminAPI.rawPost(
+          `/leads/${leadId}/demos`,
+          payload
+        );
+      }
+
+      await openEdit({
+        _id: leadId,
+        id: leadId,
+      });
+
       await loadLeads();
     } catch (err) {
       alert(
         "Book demo failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
 
-  async function convertLead(leadId, payload) {
+  // ==========================================================
+  // CONVERT
+  // ==========================================================
+
+  async function convertLead(
+    leadId,
+    payload
+  ) {
     try {
-      await AdminAPI.convertLead(leadId, payload);
-      await openEdit({ _id: leadId, id: leadId });
+      await AdminAPI.convertLead(
+        leadId,
+        payload
+      );
+
+      await openEdit({
+        _id: leadId,
+        id: leadId,
+      });
+
       await loadLeads();
     } catch (err) {
       alert(
         "Convert failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
 
+  // ==========================================================
+  // QUICK ASSIGN
+  // ==========================================================
+
   async function quickAssignSelf(l) {
     try {
-      if (assignedToCurrentUser(l)) return;
+      if (assignedToCurrentUser(l)) {
+        return;
+      }
+
       let nf = l.next_follow_up
-        ? new Date(l.next_follow_up).toISOString()
+        ? new Date(
+            l.next_follow_up
+          ).toISOString()
         : undefined;
+
       if (!nf) {
         const ans = prompt(
           "Enter next follow-up (YYYY-MM-DDTHH:mm) — required to assign:",
-          dayjs().add(1, "day").format("YYYY-MM-DDTHH:mm")
+          dayjs()
+            .add(1, "day")
+            .format(
+              "YYYY-MM-DDTHH:mm"
+            )
         );
+
         if (!ans) return;
+
         nf = new Date(ans).toISOString();
       }
-      await AdminAPI.updateLead(l._id || l.id, {
-        assigned_to: userId,
-        next_follow_up: nf,
-      });
+
+      await AdminAPI.updateLead(
+        l._id || l.id,
+        {
+          assigned_to: userId,
+          next_follow_up: nf,
+        }
+      );
+
       await loadLeads();
     } catch (err) {
       alert(
         "Assign failed: " +
-        (err?.response?.data?.message || err.message)
+          (err?.response?.data?.message ||
+            err.message)
       );
     }
   }
+
+  // ==========================================================
+  // PAGINATION
+  // ==========================================================
 
   const totalPages = useMemo(
     () =>
       Math.max(
         1,
-        Math.ceil((total || leads.length || 0) / limit)
+        Math.ceil(
+          (total ||
+            leads.length ||
+            0) / limit
+        )
       ),
     [total, leads, limit]
   );
 
-  /* ---------- small UI components (kept inline) ---------- */
-  const Card = ({ children, style }) => (
-    <div className="cl-card" style={style}>
+  // ==========================================================
+  // UI COMPONENTS
+  // ==========================================================
+
+  const Card = ({
+    children,
+    style,
+  }) => (
+    <div
+      className="cl-card"
+      style={style}
+    >
       {children}
     </div>
   );
 
-  const StatusBadge = ({ status }) => {
+  const StatusBadge = ({
+    status,
+  }) => {
     const map = {
       new: ["#eef2ff", "#1e40af"],
-      attempting: ["#fff7ed", "#92400e"],
-      demo_booked: ["#ecfccb", "#365314"],
-      converted: ["#ecfeff", "#0f766e"],
-      not_interested: ["#fff1f2", "#9f1239"],
-      cold: ["#f8fafc", "#111827"],
+      attempting: [
+        "#fff7ed",
+        "#92400e",
+      ],
+      demo_booked: [
+        "#ecfccb",
+        "#365314",
+      ],
+      converted: [
+        "#ecfeff",
+        "#0f766e",
+      ],
+      not_interested: [
+        "#fff1f2",
+        "#9f1239",
+      ],
+      cold: [
+        "#f8fafc",
+        "#111827",
+      ],
     };
-    const [bg, color] = map[status] || ["#f3f4f6", "#374151"];
+
+    const [bg, color] =
+      map[status] || [
+        "#f3f4f6",
+        "#374151",
+      ];
+
     return (
       <span
         className="cl-status-badge"
@@ -647,7 +1091,8 @@ export default function CounsellorLeads() {
           borderRadius: 8,
           fontSize: 13,
           fontWeight: 600,
-          textTransform: "capitalize",
+          textTransform:
+            "capitalize",
         }}
       >
         {status || "—"}
@@ -656,38 +1101,95 @@ export default function CounsellorLeads() {
   };
 
   const ConvertedPill = () => (
-    <span className="cl-converted-pill">Converted</span>
+    <span className="cl-converted-pill">
+      Converted
+    </span>
   );
 
-  const CountBadge = ({ count }) => {
-    if (!count || Number(count) <= 0) return null;
-    return <span className="cl-count-badge">{count}</span>;
-  };
-
-  const NextFollowPill = ({ iso }) => {
-    const info = formatNextFollowUp(iso);
-    const baseClass = "cl-next-pill";
-    let cls = baseClass;
-    if (info.color === "overdue") cls += " overdue";
-    if (info.color === "today") cls += " today";
-    if (info.color === "future") cls += " future";
-    if (info.color === "muted") cls += " muted";
+  const CountBadge = ({
+    count,
+  }) => {
+    if (
+      !count ||
+      Number(count) <= 0
+    ) {
+      return null;
+    }
 
     return (
-      <div title={info.label} aria-label={`Next follow-up ${info.label}`} className={cls}>
+      <span className="cl-count-badge">
+        {count}
+      </span>
+    );
+  };
+
+  const NextFollowPill = ({
+    iso,
+  }) => {
+    const info =
+      formatNextFollowUp(iso);
+
+    const baseClass =
+      "cl-next-pill";
+
+    let cls = baseClass;
+
+    if (
+      info.color === "overdue"
+    ) {
+      cls += " overdue";
+    }
+
+    if (
+      info.color === "today"
+    ) {
+      cls += " today";
+    }
+
+    if (
+      info.color === "future"
+    ) {
+      cls += " future";
+    }
+
+    if (
+      info.color === "muted"
+    ) {
+      cls += " muted";
+    }
+
+    return (
+      <div
+        title={info.label}
+        aria-label={`Next follow-up ${info.label}`}
+        className={cls}
+      >
         {info.human}
       </div>
     );
   };
 
-  /* ---------- Render ---------- */
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
   return (
     <div className="cl-page">
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <div className="cl-header">
         <div>
-          <h2 className="cl-title">Leads</h2>
+          <h2 className="cl-title">
+            Leads
+          </h2>
+
           <div className="cl-sub">
-            Manage your assigned leads, follow-ups and conversions — click a lead to see full details and history.
+            Manage your assigned leads,
+            follow-ups and conversions —
+            click a lead to see full details
+            and history.
           </div>
         </div>
 
@@ -701,10 +1203,16 @@ export default function CounsellorLeads() {
             }}
             className="cl-input cl-search"
           />
+
           <button
             type="button"
             onClick={() => {
-              setFilter({ brand: "", source: "", status: "" });
+              setFilter({
+                brand: "",
+                source: "",
+                status: "",
+              });
+
               setQuick("");
               setQ("");
               setPage(1);
@@ -713,15 +1221,30 @@ export default function CounsellorLeads() {
           >
             Clear
           </button>
-          <button type="button" onClick={loadLeads} className="btn-secondary">
-            Refresh
-          </button>
-          <button type="button" onClick={openCreate} className="btn-primary">
-            + Add Lead
-          </button>
+
           <button
             type="button"
-            onClick={() => navigate("/counsellor/converted")}
+            onClick={loadLeads}
+            className="btn-secondary"
+          >
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreate}
+            className="btn-primary"
+          >
+            + Add Lead
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/counsellor/converted"
+              )
+            }
             className="btn-secondary"
           >
             Converted leads
@@ -729,137 +1252,289 @@ export default function CounsellorLeads() {
         </div>
       </div>
 
+      {/* ======================================================
+          GRID
+      ====================================================== */}
+
       <section className="cl-grid">
+        {/* ====================================================
+            SIDEBAR
+        ==================================================== */}
+
         <aside className="cl-sidebar">
           <Card>
             <div className="cl-filters-header">
-              <h4 style={{ margin: 0 }}>Filters</h4>
-              <div className="cl-quick-label">Quick</div>
+              <h4
+                style={{
+                  margin: 0,
+                }}
+              >
+                Filters
+              </h4>
+
+              <div className="cl-quick-label">
+                Quick
+              </div>
             </div>
 
             <div className="cl-filters-body">
-              <label className="cl-label">Brand</label>
+              {/* Brand */}
+
+              <label className="cl-label">
+                Brand
+              </label>
+
               <select
                 value={filter.brand}
                 onChange={(e) => {
-                  setFilter((f) => ({ ...f, brand: e.target.value }));
+                  setFilter((f) => ({
+                    ...f,
+                    brand: e.target.value,
+                  }));
+
                   setPage(1);
                 }}
                 className="cl-select"
               >
-                <option value="">All brands</option>
+                <option value="">
+                  All brands
+                </option>
+
                 {brands.length === 0 && (
-                  <option value="" disabled>
-                    {metaLoading ? "Loading brands..." : "No brands"}
+                  <option
+                    value=""
+                    disabled
+                  >
+                    {metaLoading
+                      ? "Loading brands..."
+                      : "No brands"}
                   </option>
                 )}
+
                 {brands.map((b) => (
-                  <option key={b._id || b.id} value={b._id || b.id}>
+                  <option
+                    key={
+                      b._id || b.id
+                    }
+                    value={
+                      b._id || b.id
+                    }
+                  >
                     {b.name}
                   </option>
                 ))}
               </select>
 
-              <label className="cl-label">Source</label>
+              {/* Source */}
+
+              <label className="cl-label">
+                Source
+              </label>
+
               <select
                 value={filter.source}
                 onChange={(e) => {
-                  setFilter((f) => ({ ...f, source: e.target.value }));
+                  setFilter((f) => ({
+                    ...f,
+                    source:
+                      e.target.value,
+                  }));
+
                   setPage(1);
                 }}
                 className="cl-select"
               >
-                <option value="">All sources</option>
+                <option value="">
+                  All sources
+                </option>
+
                 {SOURCES.map((s) => (
-                  <option key={s.value} value={s.value}>
+                  <option
+                    key={s.value}
+                    value={s.value}
+                  >
                     {s.label}
                   </option>
                 ))}
               </select>
 
-              <label className="cl-label">Status</label>
+              {/* Status */}
+
+              <label className="cl-label">
+                Status
+              </label>
+
               <select
                 value={filter.status}
                 onChange={(e) => {
-                  setFilter((f) => ({ ...f, status: e.target.value }));
+                  setFilter((f) => ({
+                    ...f,
+                    status:
+                      e.target.value,
+                  }));
+
                   setPage(1);
                 }}
                 className="cl-select"
               >
-                <option value="">All statuses</option>
-                <option value="new">New</option>
-                <option value="attempting">Attempting</option>
-                <option value="demo_booked">Demo Booked</option>
-                <option value="converted">Converted</option>
-                <option value="not_interested">Not Interested</option>
-                <option value="cold">Cold</option>
+                <option value="">
+                  All statuses
+                </option>
+
+                <option value="new">
+                  New
+                </option>
+
+                <option value="attempting">
+                  Attempting
+                </option>
+
+                <option value="demo_booked">
+                  Demo Booked
+                </option>
+
+                <option value="converted">
+                  Converted
+                </option>
+
+                <option value="not_interested">
+                  Not Interested
+                </option>
+
+                <option value="cold">
+                  Cold
+                </option>
               </select>
 
+              {/* Quick */}
+
               <div className="cl-quick-buttons">
-                {["Hot", "Overdue", "Fresh", "Demo Booked"].map((qx) => (
+                {[
+                  "Hot",
+                  "Overdue",
+                  "Fresh",
+                  "Demo Booked",
+                ].map((qx) => (
                   <button
                     key={qx}
                     type="button"
                     onClick={() =>
-                      setQuick((cur) => (cur === qx ? "" : qx))
+                      setQuick(
+                        (cur) =>
+                          cur === qx
+                            ? ""
+                            : qx
+                      )
                     }
-                    className={quick === qx ? "btn-quick active" : "btn-quick"}
+                    className={
+                      quick === qx
+                        ? "btn-quick active"
+                        : "btn-quick"
+                    }
                   >
                     {qx}
                   </button>
                 ))}
               </div>
 
-              <label className="cl-label">Sort by</label>
+              {/* Sort */}
+
+              <label className="cl-label">
+                Sort by
+              </label>
+
               <select
                 value={sortBy}
                 onChange={(e) => {
-                  setSortBy(e.target.value);
+                  setSortBy(
+                    e.target.value
+                  );
+
                   setPage(1);
                 }}
                 className="cl-select"
               >
                 <option value="nextFollowUp">
-                  Next follow-up (default)
+                  Next follow-up
+                  (default)
                 </option>
-                <option value="createdAt">Created Date (newest)</option>
+
+                <option value="createdAt">
+                  Created Date
+                  (newest)
+                </option>
               </select>
             </div>
           </Card>
         </aside>
 
+        {/* ====================================================
+            MAIN LEAD LIST
+        ==================================================== */}
+
         <main className="cl-main">
           <Card>
             {loading ? (
-              <div className="cl-loading">Loading leads…</div>
+              <div className="cl-loading">
+                Loading leads…
+              </div>
             ) : error ? (
-              <div className="cl-error">{error}</div>
+              <div className="cl-error">
+                {error}
+              </div>
             ) : (
               <>
                 <div className="cl-list-header">
                   <div className="cl-count">
-                    {total || leads.length
-                      ? `${total || leads.length} leads`
+                    {total ||
+                    leads.length
+                      ? `${
+                          total ||
+                          leads.length
+                        } leads`
                       : "No leads found"}
                   </div>
+
                   <div className="cl-pagination">
-                    <div className="cl-page-info">Page {page} / {totalPages}</div>
+                    <div className="cl-page-info">
+                      Page {page} /{" "}
+                      {totalPages}
+                    </div>
+
                     <button
                       type="button"
                       onClick={() =>
-                        setPage((p) => Math.max(1, p - 1))
+                        setPage(
+                          (p) =>
+                            Math.max(
+                              1,
+                              p - 1
+                            )
+                        )
                       }
-                      disabled={page <= 1}
+                      disabled={
+                        page <= 1
+                      }
                       className="btn-small"
                     >
                       Prev
                     </button>
+
                     <button
                       type="button"
                       onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
+                        setPage(
+                          (p) =>
+                            Math.min(
+                              totalPages,
+                              p + 1
+                            )
+                        )
                       }
-                      disabled={page >= totalPages}
+                      disabled={
+                        page >=
+                        totalPages
+                      }
                       className="btn-small"
                     >
                       Next
@@ -869,113 +1544,252 @@ export default function CounsellorLeads() {
 
                 <div className="cl-list">
                   {leads.length === 0 && (
-                    <div className="cl-no-results">No leads match this filter.</div>
+                    <div className="cl-no-results">
+                      No leads match this
+                      filter.
+                    </div>
                   )}
 
                   {leads.map((l) => {
-                    const nf = l.next_follow_up
-                      ? dayjs(l.next_follow_up).format(
-                        "YYYY-MM-DDTHH:mm"
-                      )
-                      : null;
+                    const nf =
+                      l.next_follow_up
+                        ? dayjs(
+                            l.next_follow_up
+                          ).format(
+                            "YYYY-MM-DDTHH:mm"
+                          )
+                        : null;
+
                     const brandName =
-                      (l.brand && (l.brand.name || l.brand)) ||
+                      (l.brand &&
+                        (l.brand.name ||
+                          l.brand)) ||
                       l.brand ||
                       "-";
-                    const assignedIsMe = assignedToCurrentUser(l);
-                    const alreadyConverted = isConverted(l);
 
-                    // counts
+                    const assignedIsMe =
+                      assignedToCurrentUser(
+                        l
+                      );
+
+                    const alreadyConverted =
+                      isConverted(l);
+
+                    const sourcePage =
+                      getSourcePage(l);
+
                     const attemptsCount =
-                      getCount(l, "attempt") || getCount(l, "attempts");
+                      getCount(
+                        l,
+                        "attempt"
+                      ) ||
+                      getCount(
+                        l,
+                        "attempts"
+                      );
+
                     const remarksCount =
-                      getCount(l, "remark") || getCount(l, "remarks");
+                      getCount(
+                        l,
+                        "remark"
+                      ) ||
+                      getCount(
+                        l,
+                        "remarks"
+                      );
+
                     const demosCount =
-                      getCount(l, "demo") || getCount(l, "demos");
+                      getCount(
+                        l,
+                        "demo"
+                      ) ||
+                      getCount(
+                        l,
+                        "demos"
+                      );
 
                     return (
                       <div
-                        key={l._id || l.id}
+                        key={
+                          l._id || l.id
+                        }
                         role="button"
-                        onClick={() => openEdit(l)}
+                        onClick={() =>
+                          openEdit(l)
+                        }
                         title="Click to open lead"
                         className="cl-list-item"
                       >
                         <div>
                           <div className="cl-list-row-top">
                             <div>
-                              <div className="cl-lead-name">{l.name}</div>
+                              <div className="cl-lead-name">
+                                {l.name}
+                              </div>
+
                               <div className="cl-lead-phone">
                                 {l.phone_primary ||
                                   l.phone ||
                                   "-"}
                               </div>
                             </div>
-                            <div style={{ textAlign: "right" }}>
-                              <div className="cl-brand">{brandName}</div>
+
+                            <div
+                              style={{
+                                textAlign:
+                                  "right",
+                              }}
+                            >
+                              <div className="cl-brand">
+                                {
+                                  brandName
+                                }
+                              </div>
+
                               <div className="cl-status-area">
-                                {String(l.status).toLowerCase() !==
+                                {String(
+                                  l.status
+                                ).toLowerCase() !==
                                   "converted" && (
-                                    <StatusBadge status={l.status} />
-                                  )}
-                                {alreadyConverted && <ConvertedPill />}
+                                  <StatusBadge
+                                    status={
+                                      l.status
+                                    }
+                                  />
+                                )}
+
+                                {alreadyConverted && (
+                                  <ConvertedPill />
+                                )}
                               </div>
                             </div>
                           </div>
+
+                          {/* Course + Source */}
+
                           <div className="cl-course-source">
-                            {l.course_interest?.name || l.course_interest || "—"} • Source: {l.source || "—"}
+                            {l.course_interest
+                              ?.name ||
+                              l.course_interest ||
+                              "—"}{" "}
+                            • Source:{" "}
+                            {l.source ||
+                              "—"}
                           </div>
+
+                          {/* Dynamic Source Page */}
+
+                          {sourcePage && (
+                            <div
+                              style={{
+                                marginTop: 5,
+                                fontSize: 12,
+                                color: "#64748b",
+                                wordBreak:
+                                  "break-word",
+                              }}
+                              title={
+                                sourcePage
+                              }
+                            >
+                              <strong>
+                                Source Page:
+                              </strong>{" "}
+                              {sourcePage}
+                            </div>
+                          )}
                         </div>
 
                         <div className="cl-list-follow">
                           <div className="cl-next-wrapper">
-                            <NextFollowPill iso={nf} />
+                            <NextFollowPill
+                              iso={nf}
+                            />
                           </div>
 
                           <div className="cl-action-row">
+                            {/* Attempt */}
+
                             <div className="cl-action-with-count">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setActiveLead(l);
-                                  setShowAttemptModal(true);
+
+                                  setActiveLead(
+                                    l
+                                  );
+
+                                  setShowAttemptModal(
+                                    true
+                                  );
                                 }}
                                 className="btn-action"
                               >
                                 Attempt
                               </button>
-                              <CountBadge count={attemptsCount} />
+
+                              <CountBadge
+                                count={
+                                  attemptsCount
+                                }
+                              />
                             </div>
+
+                            {/* Remark */}
 
                             <div className="cl-action-with-count">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setActiveLead(l);
-                                  setShowRemarkModal(true);
+
+                                  setActiveLead(
+                                    l
+                                  );
+
+                                  setShowRemarkModal(
+                                    true
+                                  );
                                 }}
                                 className="btn-action"
                               >
                                 Remark
                               </button>
-                              <CountBadge count={remarksCount} />
+
+                              <CountBadge
+                                count={
+                                  remarksCount
+                                }
+                              />
                             </div>
+
+                            {/* Demo */}
 
                             <div className="cl-action-with-count">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setActiveLead(l);
-                                  setShowDemoModal(true);
+
+                                  setActiveLead(
+                                    l
+                                  );
+
+                                  setShowDemoModal(
+                                    true
+                                  );
                                 }}
                                 className="btn-action"
                               >
                                 Demo
                               </button>
-                              <CountBadge count={demosCount} />
+
+                              <CountBadge
+                                count={
+                                  demosCount
+                                }
+                              />
                             </div>
                           </div>
                         </div>
@@ -986,8 +1800,14 @@ export default function CounsellorLeads() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveLead(l);
-                                setShowConvertModal(true);
+
+                                setActiveLead(
+                                  l
+                                );
+
+                                setShowConvertModal(
+                                  true
+                                );
                               }}
                               className="btn-primary-small"
                             >
@@ -1000,7 +1820,10 @@ export default function CounsellorLeads() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                quickAssignSelf(l);
+
+                                quickAssignSelf(
+                                  l
+                                );
                               }}
                               className="btn-ghost"
                             >
@@ -1012,7 +1835,10 @@ export default function CounsellorLeads() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(l);
+
+                              handleDelete(
+                                l
+                              );
                             }}
                             className="btn-danger"
                           >
@@ -1029,25 +1855,58 @@ export default function CounsellorLeads() {
         </main>
       </section>
 
-      {/* Slide-over: form + details */}
+      {/* ======================================================
+          SLIDE OVER
+      ====================================================== */}
+
       {showSlide && (
         <div className="cl-slide-backdrop">
           <div className="cl-slide">
-            {/* Header showing personal info */}
+            {/* =================================================
+                HEADER
+            ================================================= */}
+
             <div className="cl-slide-header">
               <div>
                 <div className="cl-slide-title">
-                  {editing?.name || form.name || "Edit lead —"}
+                  {editing?.name ||
+                    form.name ||
+                    "Edit lead —"}
                 </div>
+
                 <div className="cl-slide-sub">
-                  <div>{editing?.phone_primary || form.phone_primary || "—"}</div>
-                  <div>{editing?.email || form.email || "—"}</div>
-                  <div className="cl-slide-brand">{(editing?.brand && (editing.brand.name || editing.brand)) || form.brand || "—"}</div>
                   <div>
-                    {editing && isConverted(editing) ? (
+                    {editing?.phone_primary ||
+                      form.phone_primary ||
+                      "—"}
+                  </div>
+
+                  <div>
+                    {editing?.email ||
+                      form.email ||
+                      "—"}
+                  </div>
+
+                  <div className="cl-slide-brand">
+                    {(editing?.brand &&
+                      (editing.brand.name ||
+                        editing.brand)) ||
+                      form.brand ||
+                      "—"}
+                  </div>
+
+                  <div>
+                    {editing &&
+                    isConverted(
+                      editing
+                    ) ? (
                       <ConvertedPill />
                     ) : editing?.status ? (
-                      <StatusBadge status={editing.status} />
+                      <StatusBadge
+                        status={
+                          editing.status
+                        }
+                      />
                     ) : null}
                   </div>
                 </div>
@@ -1067,100 +1926,227 @@ export default function CounsellorLeads() {
               </div>
             </div>
 
-            <form onSubmit={handleSave} className="cl-form">
+            {/* =================================================
+                FORM
+            ================================================= */}
+
+            <form
+              onSubmit={handleSave}
+              className="cl-form"
+            >
               <div className="cl-form-grid">
                 <div>
-                  <label className="cl-label">Name</label>
+                  {/* Name */}
+
+                  <label className="cl-label">
+                    Name
+                  </label>
+
                   <input
                     required
                     value={form.name}
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, name: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        name: e.target
+                          .value,
+                      }))
                     }
                     className="cl-input"
                   />
 
+                  {/* Phones + Email */}
+
                   <div className="cl-two-row">
-                    <div style={{ flex: 1 }}>
-                      <label className="cl-label">Primary phone</label>
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <label className="cl-label">
+                        Primary phone
+                      </label>
+
                       <input
                         required
-                        value={form.phone_primary}
+                        value={
+                          form.phone_primary
+                        }
                         onChange={(e) =>
-                          setForm((s) => ({ ...s, phone_primary: e.target.value }))
+                          setForm(
+                            (s) => ({
+                              ...s,
+                              phone_primary:
+                                e.target
+                                  .value,
+                            })
+                          )
                         }
                         className="cl-input"
                       />
                     </div>
 
-                    <div style={{ flex: 1 }}>
-                      <label className="cl-label">Alternative Number</label>
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <label className="cl-label">
+                        Alternative Number
+                      </label>
+
                       <input
-                        value={form.phone_secondary}
+                        value={
+                          form.phone_secondary
+                        }
                         onChange={(e) =>
-                          setForm((s) => ({ ...s, phone_secondary: e.target.value }))
+                          setForm(
+                            (s) => ({
+                              ...s,
+                              phone_secondary:
+                                e.target
+                                  .value,
+                            })
+                          )
                         }
                         className="cl-input"
                       />
                     </div>
 
-                    <div style={{ flex: 1 }}>
-                      <label className="cl-label">Email</label>
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <label className="cl-label">
+                        Email
+                      </label>
+
                       <input
                         value={form.email}
                         onChange={(e) =>
-                          setForm((s) => ({ ...s, email: e.target.value }))
+                          setForm(
+                            (s) => ({
+                              ...s,
+                              email: e.target
+                                .value,
+                            })
+                          )
                         }
                         className="cl-input"
                       />
                     </div>
                   </div>
 
-                  <label className="cl-label">Source</label>
+                  {/* Source */}
+
+                  <label className="cl-label">
+                    Source
+                  </label>
+
                   <select
                     value={form.source}
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, source: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        source:
+                          e.target.value,
+                      }))
                     }
                     className="cl-input"
                   >
-                    <option value="">Select source</option>
+                    <option value="">
+                      Select source
+                    </option>
+
                     {SOURCES.map((s) => (
-                      <option key={s.value} value={s.value}>
+                      <option
+                        key={s.value}
+                        value={s.value}
+                      >
                         {s.label}
                       </option>
                     ))}
                   </select>
 
-                  <label className="cl-label">Course interest</label>
+                  {/* =================================================
+                      SOURCE PAGE
+                  ================================================= */}
 
-                  <select
-                    value={form.course_interest}
+                  <label className="cl-label">
+                    Source Page
+                  </label>
+
+                  <input
+                    value={
+                      form.source_page
+                    }
                     onChange={(e) =>
                       setForm((s) => ({
                         ...s,
-                        course_interest: e.target.value,
+                        source_page:
+                          e.target.value,
+                      }))
+                    }
+                    placeholder="/services or full page URL"
+                    className="cl-input"
+                  />
+
+                  {/* Course */}
+
+                  <label className="cl-label">
+                    Course interest
+                  </label>
+
+                  <select
+                    value={
+                      form.course_interest
+                    }
+                    onChange={(e) =>
+                      setForm((s) => ({
+                        ...s,
+                        course_interest:
+                          e.target.value,
                       }))
                     }
                     className="cl-input"
                   >
-                    <option value="">Select Course</option>
+                    <option value="">
+                      Select Course
+                    </option>
 
-                    {courses.map((course) => (
-                      <option
-                        key={course._id}
-                        value={course._id}
-                      >
-                        {course.name}
-                      </option>
-                    ))}
+                    {courses.map(
+                      (course) => (
+                        <option
+                          key={
+                            course._id
+                          }
+                          value={
+                            course._id
+                          }
+                        >
+                          {
+                            course.name
+                          }
+                        </option>
+                      )
+                    )}
                   </select>
 
-                  <label className="cl-label">Notes</label>
+                  {/* Notes */}
+
+                  <label className="cl-label">
+                    Notes
+                  </label>
+
                   <textarea
                     value={form.notes}
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, notes: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        notes:
+                          e.target.value,
+                      }))
                     }
                     rows={6}
                     className="cl-input cl-textarea"
@@ -1168,64 +2154,127 @@ export default function CounsellorLeads() {
                 </div>
 
                 <div>
-                  <label className="cl-label">Brand</label>
+                  {/* Brand */}
+
+                  <label className="cl-label">
+                    Brand
+                  </label>
+
                   <select
                     required
                     value={form.brand}
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, brand: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        brand:
+                          e.target.value,
+                      }))
                     }
                     className="cl-input"
                   >
                     <option value="">
-                      {metaLoading ? "Loading brands..." : "Select brand"}
+                      {metaLoading
+                        ? "Loading brands..."
+                        : "Select brand"}
                     </option>
+
                     {brands.map((b) => (
-                      <option key={b._id || b.id} value={b._id || b.id}>
+                      <option
+                        key={
+                          b._id ||
+                          b.id
+                        }
+                        value={
+                          b._id ||
+                          b.id
+                        }
+                      >
                         {b.name}
                       </option>
                     ))}
                   </select>
 
-                  <label className="cl-label">Assign to</label>
+                  {/* Assign */}
+
+                  <label className="cl-label">
+                    Assign to
+                  </label>
+
                   <select
-                    value={form.assigned_to}
+                    value={
+                      form.assigned_to
+                    }
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, assigned_to: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        assigned_to:
+                          e.target.value,
+                      }))
                     }
                     className="cl-input"
                   >
                     <option value="">
-                      {isCounsellor ? "Unassigned / me" : "Unassigned"}
+                      {isCounsellor
+                        ? "Unassigned / me"
+                        : "Unassigned"}
                     </option>
-                    {counsellors.map((c) => (
-                      <option key={c._id || c.id} value={c._id || c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+
+                    {counsellors.map(
+                      (c) => (
+                        <option
+                          key={
+                            c._id ||
+                            c.id
+                          }
+                          value={
+                            c._id ||
+                            c.id
+                          }
+                        >
+                          {c.name}
+                        </option>
+                      )
+                    )}
                   </select>
 
-                  <label className="cl-label">Next follow-up</label>
+                  {/* Follow-up */}
+
+                  <label className="cl-label">
+                    Next follow-up
+                  </label>
+
                   <input
                     type="datetime-local"
-                    value={form.next_follow_up}
+                    value={
+                      form.next_follow_up
+                    }
                     onChange={(e) =>
-                      setForm((s) => ({ ...s, next_follow_up: e.target.value }))
+                      setForm((s) => ({
+                        ...s,
+                        next_follow_up:
+                          e.target
+                            .value,
+                      }))
                     }
                     className="cl-input"
                   />
+
+                  {/* Actions */}
 
                   <div className="cl-form-actions">
                     <button
                       type="button"
                       onClick={() => {
-                        setShowSlide(false);
+                        setShowSlide(
+                          false
+                        );
                         setEditing(null);
                       }}
                       className="btn-secondary"
                     >
                       Cancel
                     </button>
+
                     <button
                       type="submit"
                       disabled={busy}
@@ -1234,24 +2283,84 @@ export default function CounsellorLeads() {
                       {busy
                         ? "Saving..."
                         : editing
-                          ? "Update"
-                          : "Create"}
+                        ? "Update"
+                        : "Create"}
                     </button>
                   </div>
                 </div>
               </div>
             </form>
 
-            {/* Details area (conversion / attempts / remarks / demos) */}
+            {/* =================================================
+                DETAILS
+            ================================================= */}
+
             {editing && (
               <div className="cl-details">
-                <h4 style={{ marginBottom: 8 }}>Details</h4>
+                <h4
+                  style={{
+                    marginBottom: 8,
+                  }}
+                >
+                  Details
+                </h4>
+
+                {/* SOURCE PAGE DETAILS */}
+
+                {getSourcePage(
+                  editing
+                ) && (
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      padding: 12,
+                      borderRadius: 8,
+                      background:
+                        "#f8fafc",
+                      border:
+                        "1px solid #e2e8f0",
+                    }}
+                  >
+                    <div
+                      className="cl-muted"
+                      style={{
+                        fontSize: 12,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Source Page
+                    </div>
+
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        wordBreak:
+                          "break-word",
+                      }}
+                    >
+                      {getSourcePage(
+                        editing
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* CONVERSION */}
 
                 <div className="cl-conversion-row">
                   <Card>
-                    <div className="cl-muted">Conversion</div>
+                    <div className="cl-muted">
+                      Conversion
+                    </div>
+
                     {detailsLoading ? (
-                      <div style={{ padding: 16 }}>Loading…</div>
+                      <div
+                        style={{
+                          padding: 16,
+                        }}
+                      >
+                        Loading…
+                      </div>
                     ) : editingConversion ? (
                       <div>
                         <div className="cl-conversion-course">
@@ -1259,167 +2368,468 @@ export default function CounsellorLeads() {
                             editingConversion.course_name ||
                             "—"}
                         </div>
+
                         <div className="cl-conversion-grid">
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Amount Paid</div>
-                            <div style={{ fontWeight: 700 }}>
-                              {editingConversion.amount_paid ?? "—"}
+                            <div className="cl-muted small">
+                              Amount Paid
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
+                              {editingConversion.amount_paid ??
+                                "—"}
                             </div>
                           </div>
+
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Total Fee</div>
-                            <div style={{ fontWeight: 700 }}>
-                              {editingConversion.total_fee ?? "—"}
+                            <div className="cl-muted small">
+                              Total Fee
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
+                              {editingConversion.total_fee ??
+                                "—"}
                             </div>
                           </div>
+
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Remaining</div>
-                            <div style={{ fontWeight: 700 }}>
-                              {editingConversion.total_fee != null &&
-                                editingConversion.amount_paid != null
-                                ? Number(editingConversion.total_fee) -
-                                Number(editingConversion.amount_paid)
+                            <div className="cl-muted small">
+                              Remaining
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
+                              {editingConversion.total_fee !=
+                                null &&
+                              editingConversion.amount_paid !=
+                                null
+                                ? Number(
+                                    editingConversion.total_fee
+                                  ) -
+                                  Number(
+                                    editingConversion.amount_paid
+                                  )
                                 : "—"}
                             </div>
                           </div>
+
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Payment Mode</div>
-                            <div style={{ fontWeight: 700 }}>
-                              {editingConversion.payment_mode || "—"}
+                            <div className="cl-muted small">
+                              Payment Mode
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
+                              {editingConversion.payment_mode ||
+                                "—"}
                             </div>
                           </div>
+
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Paid on</div>
-                            <div style={{ fontWeight: 700 }}>
+                            <div className="cl-muted small">
+                              Paid on
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
                               {editingConversion.createdAt
-                                ? dayjs(editingConversion.createdAt).format("DD MMM, YYYY")
+                                ? dayjs(
+                                    editingConversion.createdAt
+                                  ).format(
+                                    "DD MMM, YYYY"
+                                  )
                                 : editingConversion.paid_on
-                                  ? dayjs(editingConversion.paid_on).format("DD MMM, YYYY")
-                                  : "—"}
-                              {editingConversion.lead?.convertedBy?.name
-                                || editingConversion.convertedBy?.name
-                                || editingConversion.convertedBy
-                                || "-"}
-                              {" "}
+                                ? dayjs(
+                                    editingConversion.paid_on
+                                  ).format(
+                                    "DD MMM, YYYY"
+                                  )
+                                : "—"}
+
+                              {editingConversion
+                                .lead
+                                ?.convertedBy
+                                ?.name ||
+                                editingConversion
+                                  .convertedBy
+                                  ?.name ||
+                                editingConversion.convertedBy ||
+                                "-"}{" "}
+
                               <span>
                                 {displayUserName(
                                   editingConversion.convertedBy ||
-                                  editingConversion.converted_by ||
-                                  editingConversion.createdBy ||
-                                  editingConversion.created_by ||
-                                  editingConversion.createdByUser ||
-                                  editingConversion.user
+                                    editingConversion.converted_by ||
+                                    editingConversion.createdBy ||
+                                    editingConversion.created_by ||
+                                    editingConversion.createdByUser ||
+                                    editingConversion.user
                                 )}
                               </span>
                             </div>
                           </div>
+
                           <div className="cl-small-box">
-                            <div className="cl-muted small">Joining</div>
-                            <div style={{ fontWeight: 700 }}>
+                            <div className="cl-muted small">
+                              Joining
+                            </div>
+
+                            <div
+                              style={{
+                                fontWeight:
+                                  700,
+                              }}
+                            >
                               {editingConversion.joining_date
-                                ? dayjs(editingConversion.joining_date).format("DD MMM, YYYY")
+                                ? dayjs(
+                                    editingConversion.joining_date
+                                  ).format(
+                                    "DD MMM, YYYY"
+                                  )
                                 : "—"}
                             </div>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="cl-muted" style={{ padding: 12 }}>Not converted</div>
+                      <div
+                        className="cl-muted"
+                        style={{
+                          padding: 12,
+                        }}
+                      >
+                        Not converted
+                      </div>
                     )}
                   </Card>
                 </div>
 
+                {/* DETAILS GRID */}
+
                 <div className="cl-details-grid">
+                  {/* ATTEMPTS */}
+
                   <Card>
-                    <div className="cl-section-title">Attempts ({editingAttempts.length})</div>
-                    {editingAttempts.length === 0 ? (
-                      <div className="cl-muted">No attempts</div>
+                    <div className="cl-section-title">
+                      Attempts (
+                      {
+                        editingAttempts.length
+                      }
+                      )
+                    </div>
+
+                    {editingAttempts.length ===
+                    0 ? (
+                      <div className="cl-muted">
+                        No attempts
+                      </div>
                     ) : (
                       <div className="cl-list-compact">
-                        {editingAttempts.map((a) => (
-                          <div key={a._id || a.id || Math.random()} className="cl-mini-card">
-                            <div className="cl-mini-title">{a.result || a.outcome || "—"}</div>
-                            <div className="cl-mini-body">{a.remark || a.note || a.comment || "—"}</div>
-                            <div className="cl-mini-meta">
-                              {a.createdAt
-                                ? dayjs(a.createdAt).format("DD MMM, YYYY • HH:mm")
-                                : a.date
-                                  ? dayjs(a.date).format("DD MMM, YYYY • HH:mm")
+                        {editingAttempts.map(
+                          (a) => (
+                            <div
+                              key={
+                                a._id ||
+                                a.id ||
+                                Math.random()
+                              }
+                              className="cl-mini-card"
+                            >
+                              <div className="cl-mini-title">
+                                {a.result ||
+                                  a.outcome ||
+                                  "—"}
+                              </div>
+
+                              <div className="cl-mini-body">
+                                {a.remark ||
+                                  a.note ||
+                                  a.comment ||
+                                  "—"}
+                              </div>
+
+                              <div className="cl-mini-meta">
+                                {a.createdAt
+                                  ? dayjs(
+                                      a.createdAt
+                                    ).format(
+                                      "DD MMM, YYYY • HH:mm"
+                                    )
+                                  : a.date
+                                  ? dayjs(
+                                      a.date
+                                    ).format(
+                                      "DD MMM, YYYY • HH:mm"
+                                    )
                                   : ""}
-                              {" "}
-                              <h4>Made By:{" "}
-                                {displayUserName(
-                                  a.createdBy || ""
-                                )}
-                              </h4>
+
+                                {" "}
+
+                                <h4>
+                                  Made By:{" "}
+                                  {displayUserName(
+                                    a.createdBy ||
+                                      ""
+                                  )}
+                                </h4>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     )}
                   </Card>
 
+                  {/* REMARKS */}
+
                   <Card>
-                    <div className="cl-section-title">Remarks ({editingRemarks.length})</div>
-                    {editingRemarks.length === 0 ? (
-                      <div className="cl-muted">No remarks</div>
+                    <div className="cl-section-title">
+                      Remarks (
+                      {
+                        editingRemarks.length
+                      }
+                      )
+                    </div>
+
+                    {editingRemarks.length ===
+                    0 ? (
+                      <div className="cl-muted">
+                        No remarks
+                      </div>
                     ) : (
                       <div className="cl-list-compact">
-                        {editingRemarks.map((r) => (
-                          <div key={r._id || r.id || Math.random()} className="cl-mini-card-alt">
-                            <div className="cl-mini-body">{r.text || r.note || "—"}</div>
-                            <div className="cl-mini-meta">{r.next_follow_up ? `Next: ${dayjs(r.next_follow_up).format("DD MMM, YYYY • HH:mm")}` : ""}</div>
-                            <div className="cl-mini-meta">
-                              {r.createdAt ? dayjs(r.createdAt).format("DD MMM, YYYY • HH:mm") : ""}
-                              {" "}
-                              <h4>{" "} Made By: {displayUserName(r.createdBy || "")}</h4>
+                        {editingRemarks.map(
+                          (r) => (
+                            <div
+                              key={
+                                r._id ||
+                                r.id ||
+                                Math.random()
+                              }
+                              className="cl-mini-card-alt"
+                            >
+                              <div className="cl-mini-body">
+                                {r.text ||
+                                  r.note ||
+                                  "—"}
+                              </div>
+
+                              <div className="cl-mini-meta">
+                                {r.next_follow_up
+                                  ? `Next: ${dayjs(
+                                      r.next_follow_up
+                                    ).format(
+                                      "DD MMM, YYYY • HH:mm"
+                                    )}`
+                                  : ""}
+                              </div>
+
+                              <div className="cl-mini-meta">
+                                {r.createdAt
+                                  ? dayjs(
+                                      r.createdAt
+                                    ).format(
+                                      "DD MMM, YYYY • HH:mm"
+                                    )
+                                  : ""}
+
+                                {" "}
+
+                                <h4>
+                                  {" "}
+                                  Made By:{" "}
+                                  {displayUserName(
+                                    r.createdBy ||
+                                      ""
+                                  )}
+                                </h4>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     )}
                   </Card>
 
+                  {/* DEMOS */}
+
                   <Card>
-                    <div className="cl-section-title">Demos ({editingDemos.length})</div>
-                    {editingDemos.length === 0 ? (
-                      <div className="cl-muted">No demos</div>
+                    <div className="cl-section-title">
+                      Demos (
+                      {
+                        editingDemos.length
+                      }
+                      )
+                    </div>
+
+                    {editingDemos.length ===
+                    0 ? (
+                      <div className="cl-muted">
+                        No demos
+                      </div>
                     ) : (
                       <div className="cl-list-compact">
-                        {editingDemos.map((d) => (
-                          <div key={d._id || d.id || Math.random()} className="cl-mini-card-demo">
-                            <div className="cl-mini-title">{d.date ? dayjs(d.date).format("DD MMM, YYYY") : d.scheduled_date || "—"}</div>
-                            <div className="cl-mini-body">{d.time || d.scheduled_time || ""} {d.trainer ? `• ${d.trainer}` : ""}</div>
-                            <div className="cl-mini-meta">
-                              {d.createdAt ? dayjs(d.createdAt).format("DD MMM, YYYY • HH:mm") : ""}
-                              {" "}
-                              <h4>Made By: {displayUserName(d.createdBy || d.created_by || d.user || d.bookedBy || d.booked_by)}</h4>
+                        {editingDemos.map(
+                          (d) => (
+                            <div
+                              key={
+                                d._id ||
+                                d.id ||
+                                Math.random()
+                              }
+                              className="cl-mini-card-demo"
+                            >
+                              <div className="cl-mini-title">
+                                {d.date
+                                  ? dayjs(
+                                      d.date
+                                    ).format(
+                                      "DD MMM, YYYY"
+                                    )
+                                  : d.scheduled_date ||
+                                    "—"}
+                              </div>
+
+                              <div className="cl-mini-body">
+                                {d.time ||
+                                  d.scheduled_time ||
+                                  ""}{" "}
+                                {d.trainer
+                                  ? `• ${d.trainer}`
+                                  : ""}
+                              </div>
+
+                              <div className="cl-mini-meta">
+                                {d.createdAt
+                                  ? dayjs(
+                                      d.createdAt
+                                    ).format(
+                                      "DD MMM, YYYY • HH:mm"
+                                    )
+                                  : ""}
+
+                                {" "}
+
+                                <h4>
+                                  Made By:{" "}
+                                  {displayUserName(
+                                    d.createdBy ||
+                                      d.created_by ||
+                                      d.user ||
+                                      d.bookedBy ||
+                                      d.booked_by
+                                  )}
+                                </h4>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     )}
                   </Card>
 
+                  {/* OTHER */}
+
                   <Card>
-                    <div className="cl-section-title">Other</div>
+                    <div className="cl-section-title">
+                      Other
+                    </div>
+
                     <div className="cl-muted">
                       <div>
-                        <strong>Added by:</strong>{" "}
-                        {editing?.createdBy?.name ||
+                        <strong>
+                          Added by:
+                        </strong>{" "}
+                        {editing?.createdBy
+                          ?.name ||
                           (editing?.createdBy
-                            ? displayUserName(editing.createdBy)
+                            ? displayUserName(
+                                editing.createdBy
+                              )
                             : "—")}
                       </div>
-                      <div style={{ marginTop: 8 }}>
-                        <strong>Created:</strong>{" "}
+
+                      <div
+                        style={{
+                          marginTop: 8,
+                        }}
+                      >
+                        <strong>
+                          Created:
+                        </strong>{" "}
                         {editing?.createdAt
-                          ? dayjs(editing.createdAt).format("DD MMM, YYYY • HH:mm")
+                          ? dayjs(
+                              editing.createdAt
+                            ).format(
+                              "DD MMM, YYYY • HH:mm"
+                            )
                           : "—"}
                       </div>
-                      <div style={{ marginTop: 6 }}>
-                        <strong>Lead ID:</strong>{" "}
-                        {editing?._id || editing?.id || "—"}
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                        }}
+                      >
+                        <strong>
+                          Lead ID:
+                        </strong>{" "}
+                        {editing?._id ||
+                          editing?.id ||
+                          "—"}
+                      </div>
+
+                      {/* SOURCE */}
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                        }}
+                      >
+                        <strong>
+                          Source:
+                        </strong>{" "}
+                        {editing?.source ||
+                          "—"}
+                      </div>
+
+                      {/* SOURCE PAGE */}
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                          wordBreak:
+                            "break-word",
+                        }}
+                      >
+                        <strong>
+                          Source Page:
+                        </strong>{" "}
+                        {getSourcePage(
+                          editing
+                        ) || "—"}
                       </div>
                     </div>
                   </Card>
@@ -1430,47 +2840,63 @@ export default function CounsellorLeads() {
         </div>
       )}
 
-      {/* Modals */}
-      {showAttemptModal && activeLead && (
-        <AttemptModal
-          lead={activeLead}
-          onClose={() => {
-            setShowAttemptModal(false);
-            setActiveLead(null);
-          }}
-          onSave={addAttempt}
-        />
-      )}
-      {showRemarkModal && activeLead && (
-        <RemarkModal
-          lead={activeLead}
-          onClose={() => {
-            setShowRemarkModal(false);
-            setActiveLead(null);
-          }}
-          onSave={addRemark}
-        />
-      )}
-      {showDemoModal && activeLead && (
-        <DemoModal
-          lead={activeLead}
-          onClose={() => {
-            setShowDemoModal(false);
-            setActiveLead(null);
-          }}
-          onSave={bookDemo}
-        />
-      )}
-      {showConvertModal && activeLead && (
-        <ConvertModal
-          lead={activeLead}
-          onClose={() => {
-            setShowConvertModal(false);
-            setActiveLead(null);
-          }}
-          onSave={convertLead}
-        />
-      )}
+      {/* ======================================================
+          MODALS
+      ====================================================== */}
+
+      {showAttemptModal &&
+        activeLead && (
+          <AttemptModal
+            lead={activeLead}
+            onClose={() => {
+              setShowAttemptModal(
+                false
+              );
+              setActiveLead(null);
+            }}
+            onSave={addAttempt}
+          />
+        )}
+
+      {showRemarkModal &&
+        activeLead && (
+          <RemarkModal
+            lead={activeLead}
+            onClose={() => {
+              setShowRemarkModal(
+                false
+              );
+              setActiveLead(null);
+            }}
+            onSave={addRemark}
+          />
+        )}
+
+      {showDemoModal &&
+        activeLead && (
+          <DemoModal
+            lead={activeLead}
+            onClose={() => {
+              setShowDemoModal(false);
+              setActiveLead(null);
+            }}
+            onSave={bookDemo}
+          />
+        )}
+
+      {showConvertModal &&
+        activeLead && (
+          <ConvertModal
+            lead={activeLead}
+            onClose={() => {
+              setShowConvertModal(
+                false
+              );
+              setActiveLead(null);
+            }}
+            onSave={convertLead}
+          />
+        )}
     </div>
   );
 }
