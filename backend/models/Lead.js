@@ -1,14 +1,26 @@
-
 // src/models/Lead.js
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
 const leadSchema = new Schema({
-  name: { type: String, required: true },
-  phone_primary: { type: String, required: true },
-  phone_secondary: { type: String },
-  email: { type: String },
+  name: {
+    type: String,
+    required: true,
+  },
+
+  phone_primary: {
+    type: String,
+    required: true,
+  },
+
+  phone_secondary: {
+    type: String,
+  },
+
+  email: {
+    type: String,
+  },
 
   brand: {
     type: Schema.Types.ObjectId,
@@ -25,9 +37,22 @@ const leadSchema = new Schema({
     type: String,
   },
 
-  // Page from which the lead submitted the website assessment
-  sourcePage: {
+  // ==========================================================
+  // WEBSITE SOURCE PAGE
+  // ==========================================================
+  // Stores the exact page from which the website lead
+  // submitted the assessment.
+  //
+  // Examples:
+  // /
+  // /services
+  // /contact
+  // /assessment
+  // ==========================================================
+
+  source_page: {
     type: String,
+    trim: true,
   },
 
   assigned_to: {
@@ -105,6 +130,7 @@ leadSchema.pre("save", function (next) {
 });
 
 const Lead =
-  mongoose.models.Lead || mongoose.model("Lead", leadSchema);
+  mongoose.models.Lead ||
+  mongoose.model("Lead", leadSchema);
 
 export default Lead;
